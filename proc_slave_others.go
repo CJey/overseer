@@ -28,3 +28,7 @@ func (sp *slave) watchParent() error {
 	}()
 	return nil
 }
+
+func closeFD(fd int) error {
+	return syscall.Close(fd)
+}

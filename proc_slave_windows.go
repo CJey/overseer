@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/StackExchange/wmi"
 	"os"
+	"syscall"
 	"time"
 )
 
@@ -71,6 +72,10 @@ func (sp *slave) watchParent() error {
 		}
 	}()
 	return nil
+}
+
+func closeFD(fd int) error {
+	return syscall.Close(syscall.Handle(fd))
 }
 
 func GetWin32Proc(pid int32) ([]Win32_Process, error) {
