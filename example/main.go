@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jpillora/overseer"
-	"github.com/jpillora/overseer/fetcher"
+	"github.com/cjey/overseer"
+	"github.com/cjey/overseer/fetcher"
 )
 
 //see example.sh for the use-case
