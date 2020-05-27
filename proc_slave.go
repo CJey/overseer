@@ -89,10 +89,12 @@ func (sp *slave) initFileDescriptors() error {
 		if err != nil {
 			return fmt.Errorf("failed to inherit file descriptor: %d", i)
 		}
-		closeFD(3 + i)
 		u := newOverseerListener(l)
 		sp.listeners[i] = u
 		sp.state.Listeners[i] = u
+	}
+	for i := 0; i < numFDs; i++ {
+		closeFD(3 + i)
 	}
 	if len(sp.state.Listeners) > 0 {
 		sp.state.Listener = sp.state.Listeners[0]
