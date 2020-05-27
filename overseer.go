@@ -9,18 +9,18 @@ import (
 	"os"
 	"runtime"
 	"time"
-
-	"github.com/cjey/overseer/fetcher"
 )
 
 const (
-	envSlaveID        = "OVERSEER_SLAVE_ID"
-	envIsSlave        = "OVERSEER_IS_SLAVE"
-	envNumFDs         = "OVERSEER_NUM_FDS"
-	envBinID          = "OVERSEER_BIN_ID"
-	envBinPath        = "OVERSEER_BIN_PATH"
-	envBinCheck       = "OVERSEER_BIN_CHECK"
-	envBinCheckLegacy = "GO_UPGRADE_BIN_CHECK"
+	envSlaveID = "OVERSEER_SLAVE_ID"
+	envIsSlave = "OVERSEER_IS_SLAVE"
+	envNumFDs  = "OVERSEER_NUM_FDS"
+	envBinPath = "OVERSEER_BIN_PATH"
+)
+
+var (
+	isSlave = os.Getenv(envIsSlave) == "1"
+	slaveID = os.Getenv(envSlaveID)
 )
 
 // Config defines overseer's run-time configuration
@@ -40,13 +40,6 @@ type Config struct {
 	//wait for the program to terminate itself. After this
 	//timeout, overseer will issue a SIGKILL.
 	TerminateTimeout time.Duration
-	//MinFetchInterval defines the smallest duration between Fetch()s.
-	//This helps to prevent unwieldy fetch.Interfaces from hogging
-	//too many resources. Defaults to 1 second.
-	MinFetchInterval time.Duration
-	//PreUpgrade runs after a binary has been retrieved, user defined checks
-	//can be run here and returning an error will cancel the upgrade.
-	PreUpgrade func(tempBinaryPath string) error
 	//Debug enables all [overseer] logs.
 	Debug bool
 	//NoWarn disables warning [overseer] logs.
@@ -54,11 +47,6 @@ type Config struct {
 	//NoRestart disables all restarts, this option essentially converts
 	//the RestartSignal into a "ShutdownSignal".
 	NoRestart bool
-	//NoRestartAfterFetch disables automatic restarts after each upgrade.
-	//Though manual restarts using the RestartSignal can still be performed.
-	NoRestartAfterFetch bool
-	//Fetcher will be used to fetch binaries.
-	Fetcher fetcher.Interface
 }
 
 func validate(c *Config) error {
@@ -79,9 +67,6 @@ func validate(c *Config) error {
 	}
 	if c.TerminateTimeout <= 0 {
 		c.TerminateTimeout = 30 * time.Second
-	}
-	if c.MinFetchInterval <= 0 {
-		c.MinFetchInterval = 1 * time.Second
 	}
 	return nil
 }
@@ -109,33 +94,6 @@ func Run(c Config) {
 	os.Exit(0)
 }
 
-//sanityCheck returns true if a check was performed
-func sanityCheck() bool {
-	//sanity check
-	if token := os.Getenv(envBinCheck); token != "" {
-		fmt.Fprint(os.Stdout, token)
-		return true
-	}
-	//legacy sanity check using old env var
-	if token := os.Getenv(envBinCheckLegacy); token != "" {
-		fmt.Fprint(os.Stdout, token)
-		return true
-	}
-	return false
-}
-
-//SanityCheck manually runs the check to ensure this binary
-//is compatible with overseer. This tries to ensure that a restart
-//is never performed against a bad binary, as it would require
-//manual intervention to rectify. This is automatically done
-//on overseer.Run() though it can be manually run prior whenever
-//necessary.
-func SanityCheck() {
-	if sanityCheck() {
-		os.Exit(0)
-	}
-}
-
 //abstraction over master/slave
 var currentProcess interface {
 	triggerRestart()
@@ -150,16 +108,28 @@ func runErr(c *Config) error {
 	if err := validate(c); err != nil {
 		return err
 	}
-	if sanityCheck() {
-		return nil
-	}
 	//run either in master or slave mode
-	if os.Getenv(envIsSlave) == "1" {
+	if IsSlave() {
 		currentProcess = &slave{Config: c}
 	} else {
 		currentProcess = &master{Config: c}
 	}
 	return currentProcess.run()
+}
+
+//IsMaster returns current running mode is master or not
+func IsMaster() bool {
+	return !isSlave
+}
+
+//IsSlave returns current running mode is slave or not
+func IsSlave() bool {
+	return isSlave
+}
+
+//SlaveID returns current slave's number id
+func SlaveID() string {
+	return slaveID
 }
 
 //Restart programmatically triggers a graceful restart. If NoRestart

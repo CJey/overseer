@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/cjey/overseer"
-	"github.com/cjey/overseer/fetcher"
 )
 
 //see example.sh for the use-case
@@ -17,14 +16,14 @@ var BuildID = "0"
 //convert your 'main()' into a 'prog(state)'
 //'prog()' is run in a child process
 func prog(state overseer.State) {
-	fmt.Printf("app#%s (%s) listening...\n", BuildID, state.ID)
+	fmt.Printf("app#%s listening...\n", BuildID)
 	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		d, _ := time.ParseDuration(r.URL.Query().Get("d"))
 		time.Sleep(d)
-		fmt.Fprintf(w, "app#%s (%s) says hello\n", BuildID, state.ID)
+		fmt.Fprintf(w, "app#%s says hello\n", BuildID)
 	}))
 	http.Serve(state.Listener, nil)
-	fmt.Printf("app#%s (%s) exiting...\n", BuildID, state.ID)
+	fmt.Printf("app#%s exiting...\n", BuildID)
 }
 
 //then create another 'main' which runs the upgrades
@@ -33,7 +32,6 @@ func main() {
 	overseer.Run(overseer.Config{
 		Program: prog,
 		Address: ":5001",
-		Fetcher: &fetcher.File{Path: "my_app_next"},
 		Debug:   false, //display log of overseer actions
 	})
 }

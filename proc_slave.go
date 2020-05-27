@@ -23,8 +23,6 @@ type State struct {
 	//this program will be running in a child process and
 	//overseer will perform rolling upgrades.
 	Enabled bool
-	//ID is a SHA-1 hash of the current running binary
-	ID string
 	//StartedAt records the start time of the program
 	StartedAt time.Time
 	//Listener is the first net.Listener in Listeners
@@ -59,7 +57,6 @@ func (sp *slave) run() error {
 	sp.id = os.Getenv(envSlaveID)
 	sp.debugf("run")
 	sp.state.Enabled = true
-	sp.state.ID = os.Getenv(envBinID)
 	sp.state.StartedAt = time.Now()
 	sp.state.Address = sp.Config.Address
 	sp.state.Addresses = sp.Config.Addresses

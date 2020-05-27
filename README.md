@@ -1,6 +1,6 @@
 # overseer
 
-[![GoDoc](https://godoc.org/github.com/cjey/overseer?status.svg)](https://godoc.org/github.com/cjey/overseer)   [![Tests](https://github.com/cjey/overseer/workflows/Tests/badge.svg)](https://github.com/cjey/overseer/actions?workflow=Tests)
+[![GoDoc](https://godoc.org/github.com/cjey/overseer?status.svg)](https://godoc.org/github.com/cjey/overseer)
 
 `overseer` is a package for creating monitorable, gracefully restarting, self-upgrading binaries in Go (golang). The main goal of this project is to facilitate the creation of self-upgrading binaries which play nice with standard process managers, secondly it should expose a small and simple API with reasonable defaults.
 
@@ -35,7 +35,6 @@ import (
 	"time"
 
 	"github.com/cjey/overseer"
-	"github.com/cjey/overseer/fetcher"
 )
 
 //create another main() to run the overseer process
@@ -44,10 +43,6 @@ func main() {
 	overseer.Run(overseer.Config{
 		Program: prog,
 		Address: ":3000",
-		Fetcher: &fetcher.HTTP{
-			URL:      "http://localhost:4000/binaries/myapp",
-			Interval: 1 * time.Second,
-		},
 	})
 }
 
@@ -68,9 +63,6 @@ func prog(state overseer.State) {
 * The child process is provided with these files which is converted into a `Listener/s` for the `Program` to consume.
 * All child process pipes are connected back to the main process.
 * All signals received on the main process are forwarded through to the child process.
-* `Fetcher` runs in a goroutine and checks for updates at preconfigured interval. When `Fetcher` returns a valid binary stream (`io.Reader`), the master process saves it to a temporary location, verifies it, replaces the current binary and initiates a graceful restart.
-* The `fetcher.HTTP` accepts a `URL`, it polls this URL with HEAD requests and until it detects a change. On change, we `GET` the `URL` and stream it back out to `overseer`. See also `fetcher.S3`.
-* Once a binary is received, it is run with a simple echo token to confirm it is a `overseer` binary.
 * Except for scheduled restarts, the active child process exiting will cause the main process to exit with the same code. So, **`overseer` is not a process manager**.
 
 See [Config](https://godoc.org/github.com/cjey/overseer#Config)uration options [here](https://godoc.org/github.com/cjey/overseer#Config) and the runtime [State](https://godoc.org/github.com/cjey/overseer#State) available to your program [here](https://godoc.org/github.com/cjey/overseer#State).
@@ -84,22 +76,22 @@ $ cd example/
 $ sh example.sh
 BUILT APP (1)
 RUNNING APP
-app#1 (c7940a5bfc3f0e8633d3bf775f54bb59f50b338e) listening...
-app#1 (c7940a5bfc3f0e8633d3bf775f54bb59f50b338e) says hello
-app#1 (c7940a5bfc3f0e8633d3bf775f54bb59f50b338e) says hello
+app#1 listening...
+app#1 says hello
+app#1 says hello
 BUILT APP (2)
-app#2 (3dacb8bc673c1b4d38f8fb4fad5b017671aa8a67) listening...
-app#2 (3dacb8bc673c1b4d38f8fb4fad5b017671aa8a67) says hello
-app#2 (3dacb8bc673c1b4d38f8fb4fad5b017671aa8a67) says hello
-app#1 (c7940a5bfc3f0e8633d3bf775f54bb59f50b338e) says hello
-app#1 (c7940a5bfc3f0e8633d3bf775f54bb59f50b338e) exiting...
+app#2 listening...
+app#2 says hello
+app#2 says hello
+app#1 says hello
+app#1 exiting...
 BUILT APP (3)
-app#3 (b7614e7ff42eed8bb334ed35237743b0e4041678) listening...
-app#3 (b7614e7ff42eed8bb334ed35237743b0e4041678) says hello
-app#3 (b7614e7ff42eed8bb334ed35237743b0e4041678) says hello
-app#2 (3dacb8bc673c1b4d38f8fb4fad5b017671aa8a67) says hello
-app#2 (3dacb8bc673c1b4d38f8fb4fad5b017671aa8a67) exiting...
-app#3 (b7614e7ff42eed8bb334ed35237743b0e4041678) says hello
+app#3 listening...
+app#3 says hello
+app#3 says hello
+app#2 says hello
+app#2 exiting...
+app#3 says hello
 ```
 
 **Note:** `app#1` stays running until the last request is closed.
@@ -117,37 +109,6 @@ func main() {
 
 Send `main` a `SIGUSR2` (`Config.RestartSignal`) to manually trigger a restart
 
-#### Only use auto-upgrades, no restarts
-
-```go
-func main() {
-	overseer.Run(overseer.Config{
-		Program: prog,
-		NoRestart: true,
-		Fetcher: &fetcher.HTTP{
-			URL:      "http://localhost:4000/binaries/myapp",
-			Interval: 1 * time.Second,
-		},
-	})
-}
-```
-
-Your binary will be upgraded though it will require manual restart from the user, suitable for creating self-upgrading command-line applications.
-
-#### Multi-platform binaries using a dynamic fetch `URL`
-
-```go
-func main() {
-	overseer.Run(overseer.Config{
-		Program: prog,
-		Fetcher: &fetcher.HTTP{
-			URL: "http://localhost:4000/binaries/app-"+runtime.GOOS+"-"+runtime.GOARCH,
-			//e.g.http://localhost:4000/binaries/app-linux-amd64
-		},
-	})
-}
-```
-
 ### Known issues
 
 * The master process's `overseer.Config` cannot be changed via an upgrade, the master process must be restarted.
@@ -159,15 +120,6 @@ func main() {
 ### More documentation
 
 * [Core `overseer` package](https://godoc.org/github.com/cjey/overseer)
-* [Common `fetcher.Interface`](https://godoc.org/github.com/cjey/overseer/fetcher#Interface)
-	* [File fetcher](https://godoc.org/github.com/cjey/overseer/fetcher#File)
-	* [HTTP fetcher](https://godoc.org/github.com/cjey/overseer/fetcher#HTTP)
-	* [S3 fetcher](https://godoc.org/github.com/cjey/overseer/fetcher#S3)
-	* [Github fetcher](https://godoc.org/github.com/cjey/overseer/fetcher#Github)
-
-### Third-party Fetchers
-
-* [overseer-bindiff](https://github.com/tgulacsi/overseer-bindiff) A binary diff fetcher and builder
 
 ### Contributing
 
