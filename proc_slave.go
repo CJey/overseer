@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -93,9 +94,12 @@ func (sp *slave) initFileDescriptors() error {
 		sp.listeners[i] = u
 		sp.state.Listeners[i] = u
 	}
-	for i := 0; i < numFDs; i++ {
-		closeFD(3 + i)
-	}
+	// The fd from master(caller) exposed to slave, will exposed to subprocesses created by slave automaticlly.
+	// Generally, the fd will be destroyed by auto gc, but it's not good.
+	// If slave exec a new subprocess(sleep 999999) soon after slave started, the new subprocess will inherits the listener automaticlly.
+	// Then we kill -9 to master & slave, so we cannot reuse the listener anymore, because the listener owned by sleep now, a C program without gc.
+	// So, run gc once after we get the listener immediately
+	runtime.GC()
 	if len(sp.state.Listeners) > 0 {
 		sp.state.Listener = sp.state.Listeners[0]
 	}
