@@ -117,9 +117,11 @@ func (sp *slave) watchSignal() {
 		close(sp.state.GracefulShutdown)
 		//release any sockets and notify master
 		if len(sp.listeners) > 0 {
-			//perform graceful shutdown
-			for _, l := range sp.listeners {
-				l.release(sp.Config.TerminateTimeout)
+			if sp.Config.SingleAccept {
+				// close all listeners
+				for _, l := range sp.listeners {
+					l.Listener.Close()
+				}
 			}
 			//signal release of held sockets, allows master to start
 			//a new process before this child has actually exited.

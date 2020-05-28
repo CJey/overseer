@@ -47,6 +47,12 @@ type Config struct {
 	//NoRestart disables all restarts, this option essentially converts
 	//the RestartSignal into a "ShutdownSignal".
 	NoRestart bool
+	//SingleAccept allows accept same listener by only one slave.
+	//By default, when graceful stop signal received by slave,
+	//slave do not close listeners, you should close all listeners by youself,
+	//that means old slave and new slave will accept the same listeners simultaneously.
+	//Otherwise, slave close all listeners immediately.
+	SingleAccept bool
 }
 
 func validate(c *Config) error {
